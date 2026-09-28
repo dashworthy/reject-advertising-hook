@@ -1,0 +1,17 @@
+{
+  "description": "Deny git, gh and GitHub MCP calls whose text attributes the work to Claude or Anthropic",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__.*(pull_request|commit|issue|release|review|comment|create_or_update_file|push_files).*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/reject-advertising.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
