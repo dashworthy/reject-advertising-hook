@@ -1,3 +1,5 @@
+![reject-advertising-hook — keeps Claude attribution out of commits, PRs and comments](art/banner.svg)
+
 # reject-advertising-hook
 
 A Claude Code plugin that blocks commits, pull requests, issues, comments, reviews and releases whose text attributes the work to Claude.
