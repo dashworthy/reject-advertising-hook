@@ -7,8 +7,8 @@
   "plugins": [
     {
       "name": "reject-advertising-hook",
-      "description": "Blocks commits, pull requests, issues and releases whose text attributes the work to Claude.",
-      "version": "0.1.0",
+      "description": "Blocks commits, pull requests, issues, comments, reviews and releases whose text attributes the work to Claude.",
+      "version": "0.2.0",
       "source": ".",
       "author": {
         "name": "Andrew Leach"
