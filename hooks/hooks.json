@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__.*(pull_request|commit|issue|release|review|comment|create_or_update_file|push_files).*",
+        "matcher": "Bash|mcp__.*(pull_request|commit|issue|release|review|comment|discussion|gist|create_or_update_file|push_files).*",
         "hooks": [
           {
             "type": "command",

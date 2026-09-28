@@ -64,7 +64,25 @@ expect deny "gh --body-file with session link" Bash "$(bash_input "gh pr edit 12
 expect deny "MCP create_pull_request footer" mcp__github__create_pull_request \
     '{"title":"x","body":"Generated with Claude Code"}'
 
+# Denied: GitHub comments and reviews
+printf '{"body":"Looks good\\n\\nGenerated with [Claude Code](https://claude.com/claude-code)"}' >"$tmp/comment.json"
+printf 'Approved.\n\nhttps://claude.ai/code/session_9\n' >"$tmp/review.md"
+expect deny "gh pr comment --body footer" Bash "$(bash_input 'gh pr comment 12 --body "LGTM
+
+Generated with Claude Code"')"
+expect deny "gh issue comment --body-file" Bash "$(bash_input 'gh issue comment 7 --body-file review.md')"
+expect deny "gh pr review -F" Bash "$(bash_input 'gh pr review 12 --approve -F review.md')"
+expect deny "gh api -F body=@file" Bash "$(bash_input 'gh api repos/o/r/issues/7/comments -F body=@review.md')"
+expect deny "gh api --input json" Bash "$(bash_input 'gh api repos/o/r/pulls/12/comments --method POST --input comment.json')"
+expect deny "gh api -f body inline" Bash "$(bash_input "gh api repos/o/r/issues/7/comments -f body='Done. Co-Authored-By: Claude <noreply@anthropic.com>'")"
+expect deny "curl comment to GitHub API" Bash "$(bash_input 'curl -s -X POST https://api.github.com/repos/o/r/issues/7/comments -d @comment.json')"
+expect deny "gh gist create with footer" Bash "$(bash_input 'gh gist create notes.md -d "Generated with Claude Code"')"
+expect deny "MCP add_issue_comment" mcp__github__add_issue_comment '{"body":"Fixed.\n\nGenerated with Claude Code"}'
+expect deny "MCP add_comment_to_pending_review" mcp__github__add_comment_to_pending_review '{"body":"claude.ai/code/session_1"}'
+
 # Allowed
+expect allow "clean gh pr comment" Bash "$(bash_input 'gh pr comment 12 --body "Rebased on develop"')"
+expect allow "curl to a non-GitHub API" Bash "$(bash_input 'curl -d "Generated with Claude Code" https://example.com/log')"
 expect allow "plain commit" Bash "$(bash_input 'git commit -m "Cache routes in the PHP test workflow"')"
 expect allow "commit -F clean file" Bash "$(bash_input 'git commit -F clean.txt')"
 expect allow "searching for the trailer" Bash "$(bash_input 'grep -rn "Co-Authored-By: Claude" .')"

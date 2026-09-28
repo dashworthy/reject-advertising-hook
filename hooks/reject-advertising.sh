@@ -25,27 +25,44 @@ patterns=(
     'claude-session:'
 )
 
-# Commands that write commit, tag, PR, issue or release text.
-writer_regex='(^|[^[:alnum:]_-])(git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(commit|tag|notes|merge|rebase|revert|cherry-pick|am)|gh[[:space:]]+(pr|issue|release|api|repo))([[:space:]]|$)'
+# Commands that write commit, tag, PR, issue, review, comment, release, gist or discussion text: git and gh
+# subcommands, plus raw HTTP clients calling the GitHub API.
+writer_regex='(^|[^[:alnum:]_-])(git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(commit|tag|notes|merge|rebase|revert|cherry-pick|am)|gh[[:space:]]+(pr|issue|release|api|repo|gist))([[:space:]]|$)'
+http_regex='(^|[^[:alnum:]_-])(curl|wget|http|xh)[[:space:]].*(api\.github\.com|/api/v3/|/api/graphql)'
+
+quoted_token='("[^"]+"|'"'"'[^'"'"']+'"'"'|[^[:space:]]+)'
+
+# Appends the contents of a file named in the command to $text, resolving relative paths against the hook's cwd.
+append_file() {
+    local path="$1"
+    path="${path%\"}"; path="${path#\"}"
+    path="${path%\'}"; path="${path#\'}"
+    [[ -z "$path" || "$path" == "-" ]] && return
+    [[ "$path" != /* && -n "$cwd" ]] && path="$cwd/$path"
+    [[ -f "$path" ]] && text+=$'\n'"$(cat "$path")"
+}
 
 text=""
 
 if [[ "$tool_name" == "Bash" ]]; then
     command=$(jq -r '.tool_input.command // empty' <<<"$payload")
-    grep -qiE "$writer_regex" <<<"$command" || exit 0
+    grep -qiE "$writer_regex|$http_regex" <<<"$command" || exit 0
     text="$command"
 
-    # Messages passed by file (git commit -F, gh --body-file / -F) never appear in the command itself.
+    # Text passed by file never appears in the command itself:
+    #   git commit -F msg, gh pr comment --body-file body.md, gh api --input payload.json
     while IFS= read -r path; do
-        path="${path%\"}"; path="${path#\"}"
-        path="${path%\'}"; path="${path#\'}"
-        [[ -z "$path" || "$path" == "-" ]] && continue
-        [[ "$path" != /* && -n "$cwd" ]] && path="$cwd/$path"
-        [[ -f "$path" ]] && text+=$'\n'"$(cat "$path")"
-    done < <(grep -oE '(-F|--file|--body-file)(=|[[:space:]]+)("[^"]+"|'"'"'[^'"'"']+'"'"'|[^[:space:]]+)' <<<"$command" \
-        | sed -E 's/^(-F|--file|--body-file)(=|[[:space:]]+)//')
+        append_file "$path"
+    done < <(grep -oE "(-F|--file|--body-file|--input)(=|[[:space:]]+)$quoted_token" <<<"$command" \
+        | sed -E 's/^(-F|--file|--body-file|--input)(=|[[:space:]]+)//')
+
+    #   gh api -F body=@comment.md, curl -d @comment.json, curl --data-binary @comment.json
+    while IFS= read -r path; do
+        append_file "$path"
+    done < <(grep -oE "(-F|-f|--field|--raw-field|-d|--data|--data-binary|--data-raw|--data-urlencode|--body-file|--post-file)(=|[[:space:]]+)[\"']?[]A-Za-z0-9_.[-]*=?@[^[:space:]\"']+" <<<"$command" \
+        | sed -E 's/^.*@//')
 else
-    # GitHub MCP tools (create_pull_request, create_or_update_file, add_issue_comment, ...): check every argument.
+    # GitHub MCP tools (create_pull_request, add_issue_comment, add_comment_to_pending_review, ...): check every argument.
     text=$(jq -r '.tool_input | tostring' <<<"$payload")
 fi
 
